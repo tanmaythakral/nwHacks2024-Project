@@ -4,7 +4,11 @@
       "group_code": "WAB6LR",
       "group_name": "AWESOME",
       "members": [
-        "test_user_1"
+        "test_user_1",
+        "test_user_2",
+        "test_user_3",
+        "test_user_4"
+
       ],
       "drawing_link": ""
     }

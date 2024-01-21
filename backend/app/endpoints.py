@@ -2,6 +2,7 @@ import string
 from flask import Flask, request, jsonify
 import json
 import random
+from generate import generate
 
 app = Flask(__name__)
 
@@ -183,6 +184,35 @@ def get_group_drawings(group_id):
 
     return jsonify({'drawings': 'list_of_drawings'})
 
+def unleash():
+    generated = {}
+    global_payload = []
+
+    for group_code, group in groups.items():
+        n = len(group.get("members", []))
+
+        if n not in generated:
+            texts, boxes, removed_image = generate(n)
+            payload = {
+                "images": {},
+                "original_image": removed_image
+            }
+
+            for i, (text, box) in enumerate(zip(texts, boxes)):
+                image_key = f"image{i + 1}"
+                payload["images"][image_key] = {"coordinates": box, "image_text": text}
+
+            generated[n] = payload
+            group_payload = {group_code: payload}
+        else:
+            group_payload = {group_code: generated[n]}
+
+        global_payload.append(group_payload)
+
+    # Convert the global_payload list to JSON
+    json_payload = json.dumps(global_payload, indent=2)
+    print(json_payload)
+    return
 
 """
 BEREAL POPS -->
@@ -206,13 +236,14 @@ for every group in groups:
     if n not in generated:
         payload = generate(n)
         generated[n] = payload 
-        group_payload = group_code + payload // append as JSON
+        group_payload = group_code + payload // make this as JSON
     else:
-        group_payload = group_code + generated[n] // append as JSON
+        group_payload = group_code + generated[n] // make this as JSON
     global_payload += group_payloud 
 
 
 
+global_payload [
   group_code: { // if group size is 4, append in generated[4]
     "images": {
         "image1": {
@@ -227,6 +258,22 @@ for every group in groups:
     }
     "original_image": something.png
   } 
+  group_code_2: { // if group size is 4, append in generated[4]
+    "images": {
+        "image1": {
+            "coordinates": 
+            "image_text":
+        },
+        "image2": {
+            "coordinates": 
+            "image_text":
+        } // once frontend user sends this back, attach their username to their image 
+        ...
+    }
+    "original_image": something.png
+  } 
+]
+
 
   e.g. we have this group:
   "groups": {

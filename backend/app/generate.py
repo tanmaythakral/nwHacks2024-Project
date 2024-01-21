@@ -8,8 +8,6 @@ from rake_nltk import Rake
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import openai
 
-import openai
-
 def openai_api_call(num_objects):
     openai.api_key = ""
 
