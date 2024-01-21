@@ -1,14 +1,15 @@
 import string
+import threading
 from flask import Flask, request, jsonify
 import json
 import random
-from generate import generate
 
 app = Flask(__name__)
 
 # Load existing data from the JSON files
 users_filename = 'backend/data/users.json'
 groups_filename = 'backend/data/groups.json'
+payload_filename = 'backend/data/payload.json'
 
 # Load existing users data from the JSON file
 try:
@@ -86,6 +87,19 @@ def create_group():
     group_name = data.get('group_name')
     username = data.get('username')
 
+    # Check if the user is already in a group
+    if username in users:
+        current_group = users[username].get('groups', [])
+
+        # Check if the user is already a member of a group
+        if len(current_group) > 0:
+            # Remove the user from the current group
+            old_group_code = current_group[0]
+            groups[old_group_code]['members'].remove(username)
+
+            # Save updated data to JSON files
+            save_groups_to_json()
+
     # Generate a unique group code
     group_code = generate_unique_group_code()
 
@@ -97,10 +111,10 @@ def create_group():
         'drawing_link': ''  # !!! Create generate_drawing_link function
     }
 
-    # Update user's groups
-    user_groups = users.get(username, {}).get('groups', [])
-    user_groups.append(group_code)
-    users[username]['groups'] = user_groups
+    # Update user's groups without removing other fields
+    user_data = users.get(username, {})
+    user_data['groups'] = [group_code]
+    users[username] = user_data
 
     # Save updated data to JSON files
     save_users_to_json()
@@ -120,13 +134,25 @@ def join_group():
     if group_code in groups:
         # Check if the user is not already a member of the group
         if username not in groups[group_code]['members']:
-            # Update group's members
+            # Check if the user is already in a group
+            if username in users:
+                current_group = users[username].get('groups', [])
+                # Check if the user is already a member of another group
+                if len(current_group) > 0:
+                    # Remove the user from the current group
+                    old_group_code = current_group[0]
+                    groups[old_group_code]['members'].remove(username)
+
+                    # Save updated data to JSON files
+                    save_groups_to_json()
+
+            # Update the new group's members
             groups[group_code]['members'].append(username)
 
-            # Update user's groups
-            user_groups = users.get(username, {}).get('groups', [])
-            user_groups.append(group_code)
-            users[username]['groups'] = user_groups
+            # Update user's groups without removing other fields
+            user_data = users.get(username, {})
+            user_data['groups'] = [group_code]
+            users[username] = user_data
 
             # Save updated data to JSON files
             save_users_to_json()
@@ -138,166 +164,77 @@ def join_group():
     else:
         return jsonify({'message': 'Group not found'}), 404
 
-@app.route('/api/groups/<group_id>/details', methods=['GET'])
-def group_details(group_id):
-    # Implement logic to retrieve group details
-    # ...
 
-    return jsonify({'group': 'group_details'})
-
-@app.route('/api/groups/<group_id>/update', methods=['PUT'])
-def update_group(group_id):
+@app.route('/api/groups/draw', methods=['POST'])
+def fetch_drawing(): 
     data = request.get_json()
-    # Validate data and update the group
-    # ...
+    group_code = data.get('group_code') 
+    username = data.get('username')
 
-    return jsonify({'message': 'Group updated successfully'})
+    with open(payload_filename, 'r') as file:
+        payload_data = json.load(file)
 
-@app.route('/api/groups/<group_id>/delete', methods=['DELETE'])
-def delete_group(group_id):
-    # Implement logic to delete the group
-    # ...
+    for key, group_data in payload_data.get('payload', {}).items():
+        if key == group_code:
+            user_data = group_data.get('images', {}).get(username, None)
+            
+            if user_data:
+                return jsonify({
+                    'coordinates': user_data.get('coordinates', []),
+                    'image_text': user_data.get('image_text', ""),
+                    'original_image': group_data.get('original_image', "")
+                })
 
-    return jsonify({'message': 'Group deleted successfully'})
+    return jsonify({'message': 'Group or user not found'}), 404
 
-
-@app.route('/api/groups/<group_id>/leave', methods=['DELETE'])
-def leave_group(group_id):
-    # Implement logic to remove the user from the group
-    # ...
-
-    return jsonify({'message': 'User left group successfully'})
-
-# Drawing Endpoints
-@app.route('/api/groups/<group_id>/draw', methods=['POST'])
-def draw_in_group(group_id):
-    data = request.get_json()
-    # Validate data and add the drawing to the group
-    # ...
-
-    return jsonify({'message': 'Drawing added successfully'})
-
-@app.route('/api/groups/<group_id>/drawings', methods=['GET'])
-def get_group_drawings(group_id):
-    # Implement logic to retrieve drawings for the group
-    # ...
-
-    return jsonify({'drawings': 'list_of_drawings'})
-
-def unleash():
+def create_payload():
     generated = {}
     global_payload = []
+
+@app.route('/api/unleash', methods=['GET'])
+def unleash():
+    generated = {}
+    global_payload = {}
 
     for group_code, group in groups.items():
         n = len(group.get("members", []))
 
         if n not in generated:
-            texts, boxes, removed_image = generate(n)
+            texts = ['a lego suitcase with a face on it', 'a picture of a beach with a umbrella', 'a blue and white ball with a white background', 'a computer screen with a picture of a man in a suit', 'a man sitting on a bench under an umbrella']
+            boxes = [[764.35, 969.9, 975.05, 1201.2],
+                     [282.46, 583.19, 397.88, 722.03],
+                     [182.9, 744.05, 395.01, 866.21],
+                     [853.63, 790.75, 983.88, 952.24],
+                     [721.03, 698.67, 933.78, 930.75]]
+            removed_image = "image.png"
+
             payload = {
                 "images": {},
                 "original_image": removed_image
             }
 
-            for i, (text, box) in enumerate(zip(texts, boxes)):
-                image_key = f"image{i + 1}"
-                payload["images"][image_key] = {"coordinates": box, "image_text": text}
+            # Iterate through group members and assign images to their usernames
+            for username, (text, box) in zip(group["members"], zip(texts, boxes)):
+                payload["images"][username] = {"coordinates": box, "image_text": text}
 
             generated[n] = payload
             group_payload = {group_code: payload}
         else:
             group_payload = {group_code: generated[n]}
 
-        global_payload.append(group_payload)
+        global_payload.update(group_payload)
 
-    # Convert the global_payload list to JSON
-    json_payload = json.dumps(global_payload, indent=2)
-    print(json_payload)
-    return
-
-"""
-BEREAL POPS -->
-generate() returns a list of payload objects:
-  "4H8J25": { // GROUP CODE
-    "username_1": {
-      "coordinates": 
-      "image_text":
-    },
-    "username_2": {
-      "coordinates": 
-      "image_text":
-    }
-    ...
-  } 
-
-generated = {} 
-global_payload = []
-for every group in groups:
-    n = len(group.members)
-    if n not in generated:
-        payload = generate(n)
-        generated[n] = payload 
-        group_payload = group_code + payload // make this as JSON
-    else:
-        group_payload = group_code + generated[n] // make this as JSON
-    global_payload += group_payloud 
-
-
-
-global_payload [
-  group_code: { // if group size is 4, append in generated[4]
-    "images": {
-        "image1": {
-            "coordinates": 
-            "image_text":
-        },
-        "image2": {
-            "coordinates": 
-            "image_text":
-        } // once frontend user sends this back, attach their username to their image 
-        ...
-    }
-    "original_image": something.png
-  } 
-  group_code_2: { // if group size is 4, append in generated[4]
-    "images": {
-        "image1": {
-            "coordinates": 
-            "image_text":
-        },
-        "image2": {
-            "coordinates": 
-            "image_text":
-        } // once frontend user sends this back, attach their username to their image 
-        ...
-    }
-    "original_image": something.png
-  } 
-]
-
-
-  e.g. we have this group:
-  "groups": {
-    "WAB6LR": {
-      "group_code": "WAB6LR",
-      "group_name": "AWESOME",
-      "members": [
-        "test_user_1"
-        "test_user_2"
-      ],
-      "drawing_link": ""
-    }
-  }
-
-
-
-
-"""
-
-
+    send_notification()
+    save_payload_to_json(global_payload)
+    return jsonify({'payload': global_payload})
 
 
 # helpers
-    
+def send_notification():
+    # Implement logic to send a notification to all users
+    # ...
+    pass
+
 def generate_unique_group_code():
     while True:
         # Generate a random 6-character code
@@ -318,6 +255,19 @@ def save_groups_to_json():
     with open(groups_filename, 'w') as file:
         json.dump({'groups': groups}, file, indent=2) 
 
+# Function to save users data to JSON file
+def save_payload_to_json(global_payload):
+    with open(payload_filename, 'w') as file:
+        json.dump({'payload:': global_payload}, file, indent=2)
+
+# Function to execute a function after a delay
+def execute_after_delay(delay, func):
+    threading.Timer(delay, func).start()
+
+# Execute the delayed function after a 30-second countdown
+
+
 if __name__ == '__main__':
     app.run(debug=True)
+    execute_after_delay(30, send_notification) # send notification after 30 seconds that Bereal 
 
