@@ -3,7 +3,7 @@ import torch
 import urllib.request
 import numpy as np
 from PIL import Image
-from rake_nltk import Rake
+# from rake_nltk import Rake
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import openai
 import logging
@@ -71,7 +71,7 @@ import numpy as np
 
 def process_image_captioning(extracted_image, text="a photography of", conditional=False):
     processor, model = load_blip_model()
-    r = Rake()
+    # r = Rake()
 
     if isinstance(extracted_image, np.ndarray):
         # If extracted_image is a NumPy array
@@ -125,7 +125,7 @@ def remove_bboxes_with_mode_color(image_path, bboxes):
         region_to_remove = (x_min, y_min, x_max, y_max)
         img_removed.paste(mode_color, region_to_remove)
 
-    img_removed.show(title='Image with Bounding Boxes Removed and Filled with Mode Color')
+    # img_removed.show(title='Image with Bounding Boxes Removed and Filled with Mode Color')
     img_removed.save('image_with_bboxes_removed_mode_color.jpg')
 
     return img_removed
@@ -149,7 +149,7 @@ def stitch_image(user_image, user_bbox, original_cropped_image):
     user_image = Image.fromarray(user_image)
     original_cropped_image.paste(user_image, (x_min, y_min))
 
-    original_cropped_image.show(title='Image with User Image Stitched')
+    # original_cropped_image.show(title='Image with User Image Stitched')
     return original_cropped_image
 
 def keep_top_k_biggest_boxes(boxes, cls_names, k=3, percentage=55):
@@ -170,7 +170,7 @@ def keep_top_k_biggest_boxes(boxes, cls_names, k=3, percentage=55):
 def generate(k, image_folder="good_images"):
     source = "good_images/pixelart2.png"
     filtered_boxes, filtered_cls_names = get_boxes_and_class(source=source)
-    add_blur(source, filtered_boxes[0])
+    # add_blur(source, filtered_boxes[0])
     logger.info(f"Filtered Boxes: {filtered_boxes}")
 
     if len(filtered_boxes) > k:
@@ -193,10 +193,12 @@ def generate(k, image_folder="good_images"):
     extracted_images = extract_images_from_bboxes(image_path=source, bboxes=top_k_boxes)
     logger.info(f"Extracted Images: {extracted_images}")
 
-    for images in extracted_images:
-        Image.fromarray(images).show()
+    # for images in extracted_images:
+    #     # Image.fromarray(images).show()
 
-    removed_image = remove_bboxes_with_mode_color(image_path=source, bboxes=top_k_boxes)
+    # removed_image = remove_bboxes_with_mode_color(image_path=source, bboxes=top_k_boxes)
+        
+    blurred_image = add_blur(source, top_k_boxes)
 
     texts = []
     for images in extracted_images:
@@ -204,43 +206,30 @@ def generate(k, image_folder="good_images"):
         text = process_image_captioning(images)
         texts.append(text)
 
-    return texts, top_k_boxes, removed_image
+    return texts, top_k_boxes, blurred_image
 
-def add_blur(source, bbox, margin=5, blur_iterations=5):
+def add_blur(source, bboxes, margin=5, blur_iterations=5):
     image = Image.open(source)
-    x_min, y_min, x_max, y_max = map(int, bbox)
-    
-    x_min -= margin
-    y_min -= margin
-    x_max += margin
-    y_max += margin
-    
-    x_min = max(x_min, 0)
-    y_min = max(y_min, 0)
-    x_max = min(x_max, image.width)
-    y_max = min(y_max, image.height)
-    crop_img = image.crop((x_min, y_min, x_max, y_max))
-    np_img = np.array(crop_img)
-    
-    for _ in range(blur_iterations):
-        np_img = cv2.GaussianBlur(np_img, (35, 35), 50)
-    
-    blurred_img = Image.fromarray(np_img)
-    image.paste(blurred_img, (x_min, y_min, x_max, y_max))
-    image.show(title='Image with Bounding Boxes Blurred')
+    for bbox in bboxes:
+        x_min, y_min, x_max, y_max = map(int, bbox)
+        
+        x_min -= margin
+        y_min -= margin
+        x_max += margin
+        y_max += margin
+        
+        x_min = max(x_min, 0)
+        y_min = max(y_min, 0)
+        x_max = min(x_max, image.width)
+        y_max = min(y_max, image.height)
+        crop_img = image.crop((x_min, y_min, x_max, y_max))
+        np_img = np.array(crop_img)
+        
+        for _ in range(blur_iterations):
+            np_img = cv2.GaussianBlur(np_img, (35, 35), 50)
+        
+        blurred_img = Image.fromarray(np_img)
+        image.paste(blurred_img, (x_min, y_min, x_max, y_max))
+    # image.show(title='Image with Bounding Boxes Blurred')
     
     return image
-
-    
-
-def get_images_from_user():
-    # Placeholder for user interaction
-    pass
-
-def main():
-    generate(2, "good_images")
-    image_from_user, users_box = get_images_from_user()
-    stitch_image(image_from_user, users_box, removed_image)
-
-if __name__ == "__main__":
-    main()
