@@ -73,7 +73,7 @@ class _GroupPageState extends State<GroupPage> {
         leading: const SizedBox(),
         title: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 8),
-          child: Text('App Title',
+          child: Text('SyncInk',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color.fromARGB(255, 250, 250, 250))),
