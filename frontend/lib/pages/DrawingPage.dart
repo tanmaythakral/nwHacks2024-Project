@@ -113,7 +113,7 @@ class _DrawingPageState extends State<DrawingPage> {
           padding: const EdgeInsets.only(left: 18),
           child: IconButton(
             icon: const Icon(Icons.keyboard_arrow_down,
-                color: Colors.white, size: 28),
+                color: Color.fromARGB(255, 250, 250, 250), size: 28),
             onPressed: () {
               Navigator.push(
                 context,
@@ -131,8 +131,9 @@ class _DrawingPageState extends State<DrawingPage> {
         title: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 8),
           child: Text('App Title',
-              style:
-                  TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 250, 250, 250))),
         ),
         centerTitle: true,
       ),
@@ -144,25 +145,27 @@ class _DrawingPageState extends State<DrawingPage> {
               children: <TextSpan>[
                 const TextSpan(
                   text: 'Draw a ',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: Color.fromARGB(255, 250, 250, 250)),
                 ),
                 TextSpan(
                   text: prompt,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.white),
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 250, 250, 250)),
                 ),
                 const TextSpan(
                   text: ' in ',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: Color.fromARGB(255, 250, 250, 250)),
                 ),
                 TextSpan(
                   text: formattedTime,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.white),
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 250, 250, 250)),
                 ),
                 const TextSpan(
                   text: ' mins',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: Color.fromARGB(255, 250, 250, 250)),
                 ),
               ],
             ),
@@ -219,7 +222,9 @@ class _DrawingPageState extends State<DrawingPage> {
                       color: colors[index],
                       shape: BoxShape.circle,
                       border: isSelected
-                          ? Border.all(color: Colors.white, width: 3)
+                          ? Border.all(
+                              color: Color.fromARGB(255, 250, 250, 250),
+                              width: 3)
                           : null,
                     ),
                   ),
