@@ -1,5 +1,4 @@
 import string
-import threading
 from flask import Flask, request, jsonify
 import json
 import random
@@ -260,14 +259,21 @@ def save_payload_to_json(global_payload):
     with open(payload_filename, 'w') as file:
         json.dump({'payload:': global_payload}, file, indent=2)
 
-# Function to execute a function after a delay
-def execute_after_delay(delay, func):
-    threading.Timer(delay, func).start()
+# Initialize the flag
+push_notification_flag = False
 
-# Execute the delayed function after a 30-second countdown
+# Endpoint to trigger the push notification, call it to set flag to True which activates Bereal
+@app.route('/api/trigger-notification', methods=['GET'])
+def trigger_notification():
+    global push_notification_flag
+    push_notification_flag = True
+    return jsonify({'message': 'Push notification triggered'})
 
+# Endpoint to check the status of the flag
+@app.route('/api/notification-status', methods=['GET'])
+def notification_status():
+    return jsonify({'push_notification_flag': push_notification_flag})
 
 if __name__ == '__main__':
     app.run(debug=True)
-    execute_after_delay(30, send_notification) # send notification after 30 seconds that Bereal 
 
