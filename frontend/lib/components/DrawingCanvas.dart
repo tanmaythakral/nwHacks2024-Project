@@ -95,7 +95,8 @@ class DrawingCanvas extends HookWidget {
               child: Container(
                 height: height,
                 width: width,
-                color: Colors.white, // Background color for the initial canvas
+                color: Color.fromARGB(255, 250, 250,
+                    250), // Background color for the initial canvas
                 child: CustomPaint(
                   painter: SketchPainter(
                     sketches: sketches,

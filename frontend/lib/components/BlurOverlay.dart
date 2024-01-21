@@ -29,13 +29,13 @@ class BlurOverlay extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Icon(Icons.visibility_off, color: Colors.black, size: 40),
+                const Icon(Icons.visibility_off, color: Colors.black, size: 50),
                 const Text("Draw to reveal",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16)),
+                        fontSize: 18)),
                 const Padding(
                     padding: EdgeInsets.fromLTRB(0, 0, 0, 20),
                     child: Text(
@@ -44,7 +44,7 @@ class BlurOverlay extends StatelessWidget {
                         style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.normal,
-                            fontSize: 12))),
+                            fontSize: 14))),
                 TextButton(
                     style: ButtonStyle(
                       alignment: Alignment.center,
@@ -72,9 +72,9 @@ class BlurOverlay extends StatelessWidget {
                     child: const Text(
                       "Start drawing.",
                       style: TextStyle(
-                          color: Colors.white,
+                          color: Color.fromARGB(255, 250, 250, 250),
                           fontWeight: FontWeight.normal,
-                          fontSize: 12),
+                          fontSize: 14),
                     ))
               ],
             ),

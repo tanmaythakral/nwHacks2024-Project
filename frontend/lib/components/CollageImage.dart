@@ -14,7 +14,7 @@ class CollageImage extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color.fromARGB(255, 250, 250, 250),
         borderRadius: BorderRadius.circular(10),
       ),
     );
