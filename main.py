@@ -1,9 +1,38 @@
 from ultralytics import RTDETR, YOLO
 import torch
+import urllib.request
 import numpy as np
-import requests
+import nltk
 from PIL import Image
+from rake_nltk import Rake
 from transformers import BlipProcessor, BlipForConditionalGeneration
+import openai
+
+import openai
+
+def openai_api_call(num_objects):
+    openai.api_key = ""
+
+    num_objects = num_objects
+
+    prompt = 'Create a 2D, pixel art image in portrait mode of a [specific scene, e.g., beach, garden, ' \
+             'cityscape, desert, hills, bedroom] . The ' \
+             'image should include {} large and distinct objects from the COCO Dataset. The background ' \
+             'should be minimal, [relevant background elements, e.g., ' \
+             'sand and ocean, grass and sky, buildings and sky], with no complex elements. ' \
+             'The image should have {} large, several and distinct objects from the COCO Dataset. Make it extremely slight realistic. Make it complex in nature'.format(num_objects, num_objects)
+
+    response = openai.images.generate(
+        model="dall-e-3",
+        prompt=prompt,
+        size="1024x1792",
+        quality="standard",
+        n=1,
+    )
+
+    # response.data[0].url
+
+    return response.data[0].url
 
 def load_models(yolo_path, rtdetr_path, save_path):
     model1 = YOLO(yolo_path)
@@ -32,13 +61,14 @@ def is_inside_box(box_i, box_j):
     return x_min_i >= x_min_j and y_min_i >= y_min_j and x_max_i <= x_max_j and y_max_i <= y_max_j
 
 def get_boxes_and_class(source):
+    urllib.request.urlretrieve(source, "image.jpg")
     yolo_path = 'yolov8n.pt'
-    rtdetr_path = 'rtdetr-l.pt'
-    save_path = 'rtdetr-l-names.pt'
+    rtdetr_path = 'rtdetr-x.pt'
+    save_path = 'rtdetr-x-names.pt'
 
     model3 = load_models(yolo_path, rtdetr_path, save_path)
     print(model3.names)
-    results = model3(source, save=True)
+    results = model3("image.jpg", save=True)
 
     original_names = model3.names
     box = None
@@ -60,6 +90,7 @@ def load_blip_model():
 
 def process_image_captioning(extracted_image, text="a photography of", conditional = True):
     processor, model = load_blip_model()
+    r = Rake()
 
     raw_image = extracted_image
     if conditional == True:
@@ -67,14 +98,19 @@ def process_image_captioning(extracted_image, text="a photography of", condition
         inputs = processor(raw_image, text, return_tensors="pt")
         out = model.generate(**inputs)
         print(processor.decode(out[0], skip_special_tokens=True))
+        r.extract_keywords_from_text(processor.decode(out[0], skip_special_tokens=True))
+        print(r.get_ranked_phrases()[0])
         return processor.decode(out[0], skip_special_tokens=True)
     else:
         # Unconditional image captioning
         inputs = processor(raw_image, return_tensors="pt")
         out = model.generate(**inputs)
         print(processor.decode(out[0], skip_special_tokens=True))
+        r.extract_keywords_from_text(processor.decode(out[0], skip_special_tokens=True))
+        print(r.get_ranked_phrases()[0], r.get_ranked_phrases()[1])
         return processor.decode(out[0], skip_special_tokens=True)
-    
+
+
 
 def remove_bboxes_from_image(image_path, bboxes):
     img = Image.open(image_path)
@@ -83,8 +119,12 @@ def remove_bboxes_from_image(image_path, bboxes):
 
     for bbox in bboxes:
         x_min, y_min, x_max, y_max = map(int, bbox)
+        img_copy = img.copy()
+        crop_img = img_copy.crop((x_min, y_min, x_max, y_max))
+        np_img = np.array(crop_img)
+        avg_color = tuple(np_img.mean(axis=(0, 1)).astype(int))
         region_to_remove = (x_min, y_min, x_max, y_max)
-        img_removed.paste((255, 255, 255), region_to_remove)
+        img_removed.paste(avg_color, region_to_remove)
 
     img_removed.show(title='Image with Bounding Boxes Removed and Filled with White')
     img_removed.save('image_with_bboxes_removed_white.jpg')
@@ -117,32 +157,54 @@ def stitch_image(user_image, user_bbox, original_cropped_image):
     return original_cropped_image
 
 
-def keep_top_k_biggest_boxes(boxes, cls_names, k=3):
+def keep_top_k_biggest_boxes(boxes, cls_names, k=3, percentage=55):
     boxes = np.array(boxes)
     cls_names = np.array(cls_names)
     areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
     sorted_indices = np.argsort(areas)
-    top_k_indices = sorted_indices[-k:]
-    return boxes[top_k_indices], cls_names[top_k_indices]
+    
+    # Calculate the number of boxes in the top percentage
+    top_percentage = int(len(boxes) * (percentage / 100.0))
+    
+    # If the top percentage is greater than k, select k boxes randomly
+    if top_percentage > k:
+        top_indices = np.random.choice(sorted_indices[-top_percentage:], k, replace=False)
+    else:
+        top_indices = sorted_indices[-k:]
+    
+    return boxes[top_indices], cls_names[top_indices]
+
+
+def generate(k):
+    source = openai_api_call(num_objects = k + 5)
+    filtered_boxes, filtered_cls_names = get_boxes_and_class(source = source)
+    print(filtered_boxes)
+    top_k_boxes, top_k_names = keep_top_k_biggest_boxes(filtered_boxes, filtered_cls_names, k=k)
+    extracted_images = extract_images_from_bboxes(image_path = "image.jpg", bboxes = top_k_boxes)
+    print(extracted_images)
+    for images in extracted_images:
+        Image.fromarray(images).show()
+    removed_image = remove_bboxes_from_image(image_path = "image.jpg", bboxes=top_k_boxes)
+
+    texts = []
+    for images in extracted_images:
+        text = process_image_captioning(images, None, False)
+        texts.append(text)
+
+    return texts, top_k_boxes, removed_image
+
 
 def get_images_from_user():
     pass
 
 def main():
-    source = "pixelart2.png"
-    filtered_boxes, filtered_cls_names = get_boxes_and_class(source = source)
-    print(filtered_boxes)
-    top_k_boxes, top_k_names = keep_top_k_biggest_boxes(filtered_boxes, filtered_cls_names, k=3)
-    extracted_images = extract_images_from_bboxes(image_path= source, bboxes=top_k_boxes)
-    print(extracted_images)
-    for images in extracted_images:
-        Image.fromarray(images).show()
-    removed_image = remove_bboxes_from_image(image_path= source, bboxes=top_k_boxes)
-    for images in extracted_images:
-        process_image_captioning(images, None, False)
-
+    # openai_api_call(5)
+    # nltk.download('stopwords')
+    # nltk.download('punkt')
+    generate()
+    image_from_user, users_box = get_images_from_user()
     # user_images, user_bbox = get_images_from_user()
-    stitch_image(extracted_images[0], top_k_boxes[0], removed_image)
+    stitch_image(image_from_user, users_box, removed_image)
 
 if __name__ == "__main__":
     main()
