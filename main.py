@@ -98,19 +98,17 @@ def extract_images_from_bboxes(image_path, bboxes):
     cropped_images = []
     for bbox in bboxes:
         x_min, y_min, x_max, y_max = map(int, bbox)
-        cropped_img = original_img.crop((x_min, y_min, x_max, y_max))
+        copy_img = original_img.copy()
+        cropped_img = copy_img.crop((x_min, y_min, x_max, y_max))
         cropped_array = np.array(cropped_img)
         cropped_images.append(cropped_array)
 
-    return cropped_images, original_img
+    return cropped_images
 
 
 def stitch_image(user_image, user_bbox, original_cropped_image):
     x_min, y_min, x_max, y_max = map(int, user_bbox)
-    width, height = x_max - x_min, y_max - y_min  # Calculate width and height of the box
     user_image = Image.fromarray(user_image)
-    # Resize user_image to match the size of the bounding box
-    user_image = user_image.resize((width, height))
 
     # Paste the resized user_image onto the original_cropped_image
     original_cropped_image.paste(user_image, (x_min, y_min))
@@ -135,17 +133,16 @@ def main():
     filtered_boxes, filtered_cls_names = get_boxes_and_class(source = source)
     print(filtered_boxes)
     top_k_boxes, top_k_names = keep_top_k_biggest_boxes(filtered_boxes, filtered_cls_names, k=3)
-    extracted_images, original_cropped_image = extract_images_from_bboxes(image_path= source, bboxes=top_k_boxes)
+    extracted_images = extract_images_from_bboxes(image_path= source, bboxes=top_k_boxes)
     print(extracted_images)
     for images in extracted_images:
         Image.fromarray(images).show()
-    print(original_cropped_image)
     removed_image = remove_bboxes_from_image(image_path= source, bboxes=top_k_boxes)
     for images in extracted_images:
         process_image_captioning(images, None, False)
 
     # user_images, user_bbox = get_images_from_user()
-    stitch_image(extracted_images[0], filtered_boxes[0], original_cropped_image)
+    stitch_image(extracted_images[0], top_k_boxes[0], removed_image)
 
 if __name__ == "__main__":
     main()
