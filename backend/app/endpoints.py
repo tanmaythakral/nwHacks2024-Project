@@ -74,6 +74,36 @@ def login_user():
     else:
         return jsonify({'message': 'User not found'}), 404
 
+@app.route('/api/groups/<group_id>/user_post', methods=['POST'])
+def get_user_drawings():
+
+    cred = credentials.Certificate("/Users/shivamaggarwal/Downloads/pixdraw-20623-0b84bbec58a4.json")
+    initialize_app(cred, {'storageBucket': 'pixdraw-20623.appspot.com'})
+
+    data = request.get_json()
+    user_id = data.get('userid')
+    photo_link = data.get('link')
+    coords = data.get('coords')
+
+    user_group = users[user_id]['groups'][0]
+
+    source_blob_name = user_group['drawing_link']
+    destination_file_name = r"/Users/shivamaggarwal/Downloads/file.png"
+
+    bucket = storage.bucket()
+    blob = bucket.blob(source_blob_name)
+    blob.download_to_filename(destination_file_name)
+
+    user_blob = blob(photo_link)
+    blob.download_to_filename(user_id + "_generated.png")
+
+    new_image = stitch_image(asarray(Image.open(user_id + "_generated.png")), coords, Image.open(destination_file_name))
+    new_image = new_image.save("/Users/shivamaggarwal/Downloads/new_image.png")
+
+    new_blob = bucket.blob(user_group['drawing_link'])
+    new_blob.upload_from_filename("/Users/shivamaggarwal/Downloads/new_image.png")
+
+
 # Group Endpoints
 
 @app.route('/api/groups', methods=['GET'])
