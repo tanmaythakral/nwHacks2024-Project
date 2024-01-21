@@ -1,0 +1,18 @@
+{
+  "users": {
+    "test_user_1": {
+      "username": "test_user_1",
+      "phone": "000-000-0000",
+      "groups": [
+        "7BI8JR"
+      ]
+    },
+    "test_user_2": {
+      "username": "test_user_2",
+      "phone": "000-000-0000",
+      "groups": [
+        "7BI8JR"
+      ]
+    }
+  }
+}

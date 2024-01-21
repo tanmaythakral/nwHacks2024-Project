@@ -1,0 +1,13 @@
+{
+  "groups": {
+    "7BI8JR": {
+      "group_code": "7BI8JR",
+      "group_name": "AWESOME",
+      "members": [
+        "test_user_1",
+        "test_user_2"
+      ],
+      "drawing_link": ""
+    }
+  }
+}
