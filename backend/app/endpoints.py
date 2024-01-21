@@ -193,29 +193,35 @@ def create_payload():
 
 @app.route('/api/unleash', methods=['GET'])
 def unleash():
+    
     generated = {}
-    global_payload = {}
-
+    global_payload = {}  # Change the content type as needed
     for group_code, group in groups.items():
         n = len(group.get("members", []))
 
         if n not in generated:
-            texts = ['a lego suitcase with a face on it', 'a picture of a beach with a umbrella', 'a blue and white ball with a white background', 'a computer screen with a picture of a man in a suit', 'a man sitting on a bench under an umbrella']
-            boxes = [[764.35, 969.9, 975.05, 1201.2],
-                     [282.46, 583.19, 397.88, 722.03],
-                     [182.9, 744.05, 395.01, 866.21],
-                     [853.63, 790.75, 983.88, 952.24],
-                     [721.03, 698.67, 933.78, 930.75]]
-            removed_image = "image.png"
+            texts, boxes, blurred_image = generate(n)
+            blurred_image.save('blur_image.png')
+
+            cred = credentials.Certificate("backend/app/pixdraw-20623-0b84bbec58a4.json")
+            firebase_admin.initialize_app(cred, {"storageBucket": "pixdraw-20623.appspot.com"})
+
+            bucket = storage.bucket()
+            blob = bucket.blob('blur_image.png')
+            blob.upload_from_filename('blur_image.png')
 
             payload = {
                 "images": {},
-                "original_image": removed_image
+                "original_image": 'blur_image.png'
             }
 
             # Iterate through group members and assign images to their usernames
             for username, (text, box) in zip(group["members"], zip(texts, boxes)):
-                payload["images"][username] = {"coordinates": box, "image_text": text}
+                # Convert NumPy arrays to lists
+                box_list = box.tolist()
+                text_list = text.tolist() if isinstance(text, np.ndarray) else text
+
+                payload["images"][username] = {"coordinates": box_list, "image_text": text_list}
 
             generated[n] = payload
             group_payload = {group_code: payload}
@@ -226,7 +232,9 @@ def unleash():
 
     send_notification()
     save_payload_to_json(global_payload)
+    print(global_payload)
     return jsonify({'payload': global_payload})
+
 
 
 # helpers
