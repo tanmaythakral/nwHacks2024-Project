@@ -183,6 +183,72 @@ def get_group_drawings(group_id):
 
     return jsonify({'drawings': 'list_of_drawings'})
 
+
+"""
+BEREAL POPS -->
+generate() returns a list of payload objects:
+  "4H8J25": { // GROUP CODE
+    "username_1": {
+      "coordinates": 
+      "image_text":
+    },
+    "username_2": {
+      "coordinates": 
+      "image_text":
+    }
+    ...
+  } 
+
+generated = {} 
+global_payload = []
+for every group in groups:
+    n = len(group.members)
+    if n not in generated:
+        payload = generate(n)
+        generated[n] = payload 
+        group_payload = group_code + payload // append as JSON
+    else:
+        group_payload = group_code + generated[n] // append as JSON
+    global_payload += group_payloud 
+
+
+
+  group_code: { // if group size is 4, append in generated[4]
+    "images": {
+        "image1": {
+            "coordinates": 
+            "image_text":
+        },
+        "image2": {
+            "coordinates": 
+            "image_text":
+        } // once frontend user sends this back, attach their username to their image 
+        ...
+    }
+    "original_image": something.png
+  } 
+
+  e.g. we have this group:
+  "groups": {
+    "WAB6LR": {
+      "group_code": "WAB6LR",
+      "group_name": "AWESOME",
+      "members": [
+        "test_user_1"
+        "test_user_2"
+      ],
+      "drawing_link": ""
+    }
+  }
+
+
+
+
+"""
+
+
+
+
 # helpers
     
 def generate_unique_group_code():
@@ -194,6 +260,7 @@ def generate_unique_group_code():
         if group_code not in groups:
             return group_code
         
+
 # Function to save users data to JSON file
 def save_users_to_json():
     with open(users_filename, 'w') as file:
@@ -206,3 +273,4 @@ def save_groups_to_json():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
