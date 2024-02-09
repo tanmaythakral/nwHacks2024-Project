@@ -62,11 +62,7 @@ class BlurOverlay extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        PageRouteBuilder(
-                          pageBuilder: (context, animation1, animation2) =>
-                              const DrawingPage(),
-                          transitionDuration: Duration.zero,
-                        ),
+                        MaterialPageRoute(builder: (context) => DrawingPage()),
                       );
                     },
                     child: const Text(

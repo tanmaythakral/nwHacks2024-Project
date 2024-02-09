@@ -1,75 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/components/BlurOverlay.dart';
 import 'package:frontend/components/CollageImage.dart';
 import 'package:frontend/pages/GroupPage.dart';
 import 'package:frontend/pages/ProfilePage.dart';
+import '../main.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    String username = "lancetan02";
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Use ref.watch to listen to the userContextProvider
+    final userContext = ref.watch(userContextProvider);
 
+    // Define the username initialsD
+    final usernameInitials = userContext.value!.username.isNotEmpty == true
+        ? userContext.value!.username.substring(0, 2).toUpperCase()
+        : '??'; // Default initials if username is null or empty
+
+    // Build the HomePage content
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        centerTitle: true,
+        title: const Text('IncSync', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.black,
         elevation: 0,
         leading: Padding(
           padding: const EdgeInsets.only(left: 18),
-          child: IconButton(
-            icon: const Icon(Icons.people_rounded,
-                color: Color.fromARGB(255, 250, 250, 250), size: 28),
-            onPressed: () {
+          child: InkWell(
+            onTap: () {
               Navigator.push(
                 context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation1, animation2) =>
-                      const GroupPage(),
-                  transitionDuration: Duration.zero,
-                ),
+                MaterialPageRoute(builder: (context) => const GroupPage()),
               );
             },
-            splashColor: Colors.transparent,
-            splashRadius: 0.1,
+            child: const Icon(Icons.group, color: Colors.white),
           ),
-        ),
-        title: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: Text('SyncInk',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color.fromARGB(255, 250, 250, 250))),
         ),
         actions: [
           Padding(
-              padding: const EdgeInsets.only(right: 18),
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation1, animation2) =>
-                          const ProfilePage(),
-                      transitionDuration: Duration.zero,
-                    ),
-                  );
-                },
-                splashColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.green,
-                  child: Text(
-                    username.substring(0, 2).toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+            padding: const EdgeInsets.only(right: 18),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
+              },
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              overlayColor: MaterialStateProperty.all(Colors.transparent),
+              highlightColor: Colors.transparent,
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.green,
+                child: Text(
+                  usernameInitials,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-              )),
+              ),
+            ),
+          ),
         ],
-        centerTitle: true,
       ),
       body: const Center(
         child: Column(

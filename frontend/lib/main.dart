@@ -1,128 +1,80 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend/pages/HomePage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'pages/HomePage.dart';
+import 'pages/OnboardingPage.dart';
+import 'components/ApiHandler.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
+
+final userContextProvider = FutureProvider<UserContext?>((ref) async {
+  final FirebaseAuth auth = ref.watch(firebaseAuthProvider);
+  final User? user = auth.currentUser;
+  if (user == null) return null; // User not logged in
+
+  try {
+    final snapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    if (!snapshot.exists) return null; // User document not found
+
+    final userData = snapshot.data()!;
+    return UserContext(
+      uid: user.uid,
+      username: userData['username'] ?? '',
+      phone: userData['phone'] ?? '',
+      groups: List<String>.from(userData['groups'] ?? []),
+      box: List<dynamic>.from(userData['box'] ?? []),
+      image_text: userData['image_text'] ?? '',
+    );
+  } catch (e) {
+    print("Error fetching user data: $e");
+    return null; // Error fetching user data
+  }
+});
+
+class MyApp extends ConsumerWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userContextAsyncValue = ref.watch(userContextProvider);
+
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        fontFamily: 'SFPro',
+      title: 'IncSync',
+      theme: ThemeData(fontFamily: 'SFPro'),
+      home: userContextAsyncValue.when(
+        data: (userContext) => userContext != null ? const HomePage() : const OnboardingPage(),
+        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (_, __) => const Scaffold(body: Center(child: Text('Error loading user data'))),
       ),
-<<<<<<< HEAD
-      home: const HomePage(),
     );
-=======
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.active) {
-            User? user = snapshot.data;
-            if (user == null) {
-              return const MaterialApp(
-                home: OnboardingPage(),
-              );
-            } else {
-              // Fetch user data and pass it to HomePage
-              return FutureBuilder<UserInformation>(
-                future: apiHandler.fetchUserData(user.uid),
-                builder: (context, userDataSnapshot) {
-                  if (userDataSnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const MaterialApp(
-                      home: Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      ),
-                    );
-                  } else if (userDataSnapshot.hasError) {
-                    // Handle error if the API call fails
-                    return const MaterialApp(
-                      home: Scaffold(
-                        body: Center(child: Text('Error fetching user data')),
-                      ),
-                    );
-                  } else {
-                    // Store user data in a context provider
-                    return FutureBuilder<Map<String, dynamic>>(
-                      future: apiHandler.fetchUnleashData(),
-                      builder: (context, unleashDataSnapshot) {
-                        if (unleashDataSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const MaterialApp(
-                            home: Scaffold(
-                              body: Center(child: CircularProgressIndicator()),
-                            ),
-                          );
-                        } else if (unleashDataSnapshot.hasError) {
-                          return const MaterialApp(
-                            home: Scaffold(
-                              body: Center(
-                                  child: Text('Error fetching unleash data')),
-                            ),
-                          );
-                        } else {
-                          return MyDataProvider(
-                              userData: UserContext(
-                                  uid: user.uid,
-                                  username: userDataSnapshot.data!.username,
-                                  phone: userDataSnapshot.data!.phone,
-                                  groups: userDataSnapshot.data!.groups,
-                                  box: unleashDataSnapshot.data!['payload']
-                                                  [userDataSnapshot.data!.groups[0]]
-                                              ['images']
-                                          [userDataSnapshot.data!.username]
-                                      ['coordinates'],
-                                  image_text: unleashDataSnapshot
-                                                      .data!['payload']
-                                                  [userDataSnapshot.data!.groups[0]]
-                                              ['images']
-                                          [userDataSnapshot.data!.username]
-                                      ['image_text']),
-                              child: MaterialApp(
-                                home: HomePage(),
-                              ));
-                        }
-                      },
-                    );
-                  }
-                },
-              );
-            }
-          }
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        },
-      ),
-    ),
-  );
+  }
 }
 
-class MyDataProvider extends InheritedWidget {
-  final UserContext userData;
+class UserContext {
+  final String uid;
+  final String username;
+  final String phone;
+  final List<String> groups;
+  final List<dynamic> box;
+  final String image_text;
 
-  const MyDataProvider({
-    required this.userData,
-    required Widget child,
-    Key? key,
-  }) : super(key: key, child: child);
-
-  static MyDataProvider of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<MyDataProvider>()!;
-  }
-
-  @override
-  bool updateShouldNotify(MyDataProvider oldWidget) {
-    return userData != oldWidget.userData;
->>>>>>> b46880a (Most)
-  }
+  UserContext({
+    required this.uid,
+    required this.username,
+    required this.phone,
+    required this.groups,
+    required this.box,
+    required this.image_text,
+  });
 }

@@ -20,14 +20,8 @@ class ProfilePage extends StatelessWidget {
               icon: const Icon(Icons.arrow_back,
                   color: Color.fromARGB(255, 250, 250, 250), size: 28),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation1, animation2) =>
-                        const HomePage(),
-                    transitionDuration: Duration.zero,
-                  ),
-                );
+                // Use Navigator.pop to return to the previous screen
+                Navigator.pop(context);
               },
               splashColor: Colors.transparent,
               splashRadius: 0.1,

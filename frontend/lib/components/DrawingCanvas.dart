@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:frontend/components/SketchPainter.dart';
@@ -95,7 +94,7 @@ class DrawingCanvas extends HookWidget {
               child: Container(
                 height: height,
                 width: width,
-                color: Color.fromARGB(255, 250, 250,
+                color: const Color.fromARGB(255, 250, 250,
                     250), // Background color for the initial canvas
                 child: CustomPaint(
                   painter: SketchPainter(

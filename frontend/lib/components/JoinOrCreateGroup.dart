@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class JoinOrCreateGroupWidget extends StatefulWidget {
-  final VoidCallback onCreateGroup;
-  final VoidCallback onJoinGroup;
+  final Future<void> Function(String groupName) onCreateGroup;
+  final Future<void> Function(String groupCode) onJoinGroup;
 
   const JoinOrCreateGroupWidget({
     Key? key,
@@ -86,7 +86,9 @@ class _JoinOrCreateGroupWidgetState extends State<JoinOrCreateGroupWidget> {
             ),
             const SizedBox(height: 20),
             TextButton(
-              onPressed: isJoinMode ? widget.onJoinGroup : widget.onCreateGroup,
+              onPressed: () async {
+                isJoinMode ? widget.onJoinGroup : await widget.onCreateGroup(textEditingController.text);
+              },
               style: ButtonStyle(
                 alignment: Alignment.center,
                 backgroundColor: MaterialStateProperty.all<Color>(

@@ -1,20 +1,28 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/components/SketchPainter.dart';
 import 'package:frontend/pages/HomePage.dart';
 import 'package:frontend/components/DrawingCanvas.dart';
 
-class DrawingPage extends StatefulWidget {
-  const DrawingPage({Key? key}) : super(key: key);
+import '../Notifiers/GroupNotifier.dart';
+import '../main.dart';
+
+class DrawingPage extends ConsumerStatefulWidget {
+  DrawingPage({Key? key}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _DrawingPageState createState() => _DrawingPageState();
 }
 
-class _DrawingPageState extends State<DrawingPage> {
+class _DrawingPageState extends ConsumerState<DrawingPage> {
+  final GlobalKey _canvasKey = GlobalKey();
   late Timer _timer;
-  int _remainingTime = 120;
+  int _remainingTime = 10;
 
   final allSketches = ValueNotifier<List<Sketch>>([]);
   final currentSketch = ValueNotifier<Sketch?>(null);
@@ -29,6 +37,41 @@ class _DrawingPageState extends State<DrawingPage> {
     Colors.blue,
     Colors.yellow
   ]; // Add more as needed
+
+  Future<Uint8List?> capturePng() async {
+    try {
+      RenderRepaintBoundary boundary = _canvasKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      ui.Image image = await boundary.toImage();
+      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      Uint8List pngBytes = byteData!.buffer.asUint8List();
+      return pngBytes;
+    } catch (e) {
+      print(e.toString());
+      return null;
+    }
+  }
+
+
+
+  Future<String?> uploadDrawing(Uint8List pngBytes, String groupCode, String userId) async {
+    try {
+      // Modified file name format to use groupname/uid.jpg
+      String fileName = "drawings/$groupCode/$userId.jpg";
+
+      final storage = FirebaseStorage.instance;
+      final storageRef = storage.ref();
+      final uploadTask = storageRef.child(fileName).putData(pngBytes);
+      await uploadTask.whenComplete(() {});
+      String downloadURL = await storageRef.child(fileName).getDownloadURL();
+      return downloadURL;
+    } catch (e) {
+      print(e.toString());
+      return null;
+    }
+  }
+
+
+
 
   void selectColor(Color color) {
     setState(() {
@@ -81,21 +124,63 @@ class _DrawingPageState extends State<DrawingPage> {
   @override
   void dispose() {
     _timer.cancel();
-    currentSketch.dispose(); // Dispose of the currentSketch ValueNotifier
+    currentSketch.dispose();
     super.dispose();
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async { // Marked async
       if (_remainingTime > 0) {
         setState(() {
           _remainingTime--;
         });
       } else {
         _timer.cancel();
+        // Asynchronously capture and upload drawing outside of setState.
+        Uint8List? pngImage = await capturePng();
+        if (pngImage != null) {
+          final userId = ref.read(userContextProvider).value?.uid;
+          final groupCode = ref.read(groupNotifierProvider.notifier).groupCode;
+          String? downloadURL = await uploadDrawing(pngImage, groupCode!, userId!);
+          print("Uploaded drawing URL: $downloadURL");
+          // Now that async work is done, you can update the state or navigate as needed.
+          _showTimeUpDialog();
+        }
       }
     });
   }
+
+  void _showTimeUpDialog() {
+    // Showing dialog without directly calling setState,
+    // but ensuring this is called in a context where async work has been completed.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+          title: const Text('Time\'s Up!', style: TextStyle(color: Colors.white, fontSize: 24.0, fontWeight: FontWeight.bold)),
+          content: const Text('Your time for drawing has expired.', style: TextStyle(color: Colors.white, fontSize: 14.0)),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK', style: TextStyle(color: Colors.blue, fontSize: 18.0)),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomePage())); // Navigate away
+              },
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      if (mounted) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
+      }
+    });
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -115,14 +200,7 @@ class _DrawingPageState extends State<DrawingPage> {
             icon: const Icon(Icons.keyboard_arrow_down,
                 color: Color.fromARGB(255, 250, 250, 250), size: 28),
             onPressed: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation1, animation2) =>
-                      const HomePage(),
-                  transitionDuration: Duration.zero,
-                ),
-              );
+              Navigator.pop(context);
             },
             splashColor: Colors.transparent,
             splashRadius: 0.1,
@@ -130,7 +208,7 @@ class _DrawingPageState extends State<DrawingPage> {
         ),
         title: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 8),
-          child: Text('SyncInk',
+          child: Text('IncSync',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color.fromARGB(255, 250, 250, 250))),
@@ -172,14 +250,17 @@ class _DrawingPageState extends State<DrawingPage> {
           ),
           const SizedBox(height: 20),
           Stack(children: [
-            DrawingCanvas(
-              width: screenSize.width,
-              height: screenSize.height * 0.7,
-              currentSketch: currentSketch,
-              allSketches: allSketches,
-              selectedColor: selectedColor,
-              onSketchCompleted: handleSketchCompleted,
-              onSketchUndone: handleSketchUndone,
+            RepaintBoundary(
+              key: _canvasKey,
+              child: DrawingCanvas(
+                width: screenSize.width,
+                height: screenSize.height * 0.7,
+                currentSketch: currentSketch,
+                allSketches: allSketches,
+                selectedColor: selectedColor,
+                onSketchCompleted: handleSketchCompleted,
+                onSketchUndone: handleSketchUndone,
+              ),
             ),
             Positioned(
               top: 10,
@@ -223,7 +304,7 @@ class _DrawingPageState extends State<DrawingPage> {
                       shape: BoxShape.circle,
                       border: isSelected
                           ? Border.all(
-                              color: Color.fromARGB(255, 250, 250, 250),
+                              color: const Color.fromARGB(255, 250, 250, 250),
                               width: 3)
                           : null,
                     ),

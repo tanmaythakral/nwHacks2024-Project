@@ -1,40 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore if needed for `fetchUsernameFromUID`
 
-class GroupContentWidget extends StatelessWidget {
+class GroupContentWidget extends StatefulWidget {
   final String? groupCode;
-  final List<Map<String, dynamic>> groupMembers;
+  final List<String> groupMembers; // Assuming UIDs are passed here
   final VoidCallback onLeaveGroup;
-
-  final List<Color> avatarColors = [
-    Colors.green, // Color for the first member
-    Colors.blue, // Additional colors for other members
-    Colors.red,
-    Colors.orange,
-    Colors.purple,
-    // Add as many colors as you like
-  ];
+  final String groupName;
 
   GroupContentWidget({
     Key? key,
     required this.groupCode,
+    required this.groupName,
     required this.groupMembers,
     required this.onLeaveGroup,
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    groupMembers.clear();
-    groupMembers.add({'username': 'lancetan02'});
-    groupMembers.add({'username': 'kwong'});
+  _GroupContentWidgetState createState() => _GroupContentWidgetState();
+}
 
+class _GroupContentWidgetState extends State<GroupContentWidget> {
+  Future<List<String>> fetchUsernames() async {
+    List<Future<String>> futures = [];
+    for (String uid in widget.groupMembers) {
+      futures.add(fetchUsernameFromUID(uid));
+    }
+    return Future.wait(futures);
+  }
+
+  Future<String> fetchUsernameFromUID(String uid) async {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    try {
+      var userDocument = await firestore.collection('users').doc(uid).get();
+      if (userDocument.exists) {
+        return userDocument.data()?['username'] ?? 'Unknown';
+      }
+      return 'Unknown';
+    } catch (e) {
+      print('Error fetching username: $e');
+      return 'Error';
+    }
+  }
+
+  final List<Color> avatarColors = [
+    Colors.green, Colors.blue, Colors.red, Colors.orange, Colors.purple,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment:
-          CrossAxisAlignment.center, // Ensure full-width elements
-      children: [
-        const Text("Group Name",
-            style: TextStyle(
+      CrossAxisAlignment.center, // Ensure full-width elements
+      children: [Text(widget.groupName,
+            style: const TextStyle(
                 color: Color.fromARGB(255, 250, 250, 250),
                 fontWeight: FontWeight.bold,
                 fontSize: 18)),
@@ -51,7 +70,7 @@ class GroupContentWidget extends StatelessWidget {
                       fontSize: 14),
                 ),
                 TextSpan(
-                  text: groupCode,
+                  text: widget.groupCode,
                   style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Color.fromARGB(255, 250, 250, 250),
@@ -61,7 +80,7 @@ class GroupContentWidget extends StatelessWidget {
             ),
           ),
         ),
-        if (groupCode != null)
+        if (widget.groupCode != null)
           Padding(
             padding: const EdgeInsetsDirectional.symmetric(horizontal: 10),
             child: GestureDetector(
@@ -77,7 +96,7 @@ class GroupContentWidget extends StatelessWidget {
                     const CircleAvatar(
                       radius: 15,
                       backgroundImage:
-                          NetworkImage('https://via.placeholder.com/150'),
+                      NetworkImage('https://via.placeholder.com/150'),
                     ),
                     const SizedBox(width: 7.5),
                     Expanded(
@@ -87,13 +106,13 @@ class GroupContentWidget extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Invite friends to Group Name',
-                                      style: TextStyle(
+                                   Text('Invite friends to ${widget.groupName}',
+                                      style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: Color.fromARGB(
                                               255, 250, 250, 250),
                                           fontSize: 14)),
-                                  Text('app.title/$groupCode',
+                                  Text('app.title/${widget.groupCode}',
                                       style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
@@ -111,7 +130,7 @@ class GroupContentWidget extends StatelessWidget {
         const SizedBox(height: 16),
         const Padding(
           padding:
-              EdgeInsetsDirectional.only(start: 10, end: 10, top: 5, bottom: 5),
+          EdgeInsetsDirectional.only(start: 10, end: 10, top: 5, bottom: 5),
           child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,46 +142,51 @@ class GroupContentWidget extends StatelessWidget {
                         fontSize: 12)),
               ]),
         ),
+        // Dynamically built list of members
         Expanded(
-          child: ListView.builder(
-            itemCount: groupMembers.length,
-            itemBuilder: (context, index) {
-              Color avatarColor = index == 0
-                  ? avatarColors[0]
-                  : avatarColors[(index % avatarColors.length) + 1];
-
-              return ListTile(
-                leading: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: avatarColor,
-                  child: Text(
-                    groupMembers[index]['username']
-                        .substring(0, 2)
-                        .toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                title: Text(
-                  groupMembers[index]['username'],
-                  style: const TextStyle(
-                      color: Color.fromARGB(255, 250, 250, 250)),
-                ),
-              );
+          child: FutureBuilder<List<String>>(
+            future: fetchUsernames(),
+            builder: (BuildContext context, AsyncSnapshot<List<String>> snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                }
+                if (snapshot.hasData) {
+                  return ListView.builder(
+                    itemCount: snapshot.data!.length,
+                    itemBuilder: (context, index) {
+                      String username = snapshot.data![index];
+                      Color avatarColor = avatarColors[index % avatarColors.length];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: avatarColor,
+                          child: Text(
+                            username.substring(0, 1).toUpperCase(),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text(
+                          username,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      );
+                    },
+                  );
+                } else {
+                  return const Text('No data', style: TextStyle(color: Colors.white));
+                }
+              } else {
+                return const Center(child: CircularProgressIndicator());
+              }
             },
           ),
         ),
-        const SizedBox(height: 16),
         Padding(
             padding: const EdgeInsets.only(bottom: 30),
             child: TextButton(
-              onPressed: onLeaveGroup,
-              style: TextButton.styleFrom(
-                splashFactory: NoSplash.splashFactory,
-                backgroundColor: const Color.fromARGB(
-                    255, 250, 250, 250), // Button color for leaving group
-              ),
-              child: const Text('Leave Group',
-                  style: TextStyle(color: Colors.black)),
+              onPressed: widget.onLeaveGroup,
+              style: TextButton.styleFrom(backgroundColor: Colors.white),
+              child: const Text('Leave Group', style: TextStyle(color: Colors.black)),
             )),
       ],
     );
